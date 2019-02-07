@@ -1,0 +1,80 @@
+<#
+ # Copyright (c) 2019 Atif Aziz
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy
+ # of this software and associated documentation files (the "Software"), to deal
+ # in the Software without restriction, including without limitation the rights
+ # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ # copies of the Software, and to permit persons to whom the Software is
+ # furnished to do so, subject to the following conditions:
+ #
+ # The above copyright notice and this permission notice shall be included in
+ # all copies or substantial portions of the Software.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ # SOFTWARE.
+ #>
+
+[CmdletBinding()]
+param(
+    [parameter(Mandatory=$true)][Uri]$SsoUrl,
+    [parameter(Mandatory=$true)][string]$Account,
+    [parameter(Mandatory=$true)][string]$Role,
+    [parameter(Mandatory=$true)][string]$Profile,
+    [int]$DurationMinutes = 15,
+    [string]$Region)
+
+$ErrorActionPreference = 'Stop'
+
+if (!(Get-Command aws -ErrorAction SilentlyContinue)) {
+    Write-Error "The AWS CLI does not appear to be installed or in the system path."
+}
+
+$samlResponse = (Invoke-RestMethod -Method Post -Uri $ssoUrl -UseDefaultCredentials).html.body.form.input.value
+[xml]$saml = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($samlResponse))
+
+[array]$roles =
+    $saml.Response.Assertion.AttributeStatement.Attribute |
+    ? { $_.Name -like '*Role' } |
+    % { $_.AttributeValue.'#text' } |
+    % {
+        $cn = $_ -split ',', 2
+        New-Object psobject -Property @{
+            Role    = $cn[0]
+            Ping    = $cn[1]
+            Account = ($cn[0] -split ':')[4]
+        }
+    }
+
+$selection = $roles | ? { $_.Account -eq $account -and ($_.Role -split '/', 2)[1] -eq $role }
+
+if (!$selection) {
+    throw "You are not authorized to access AWS!"
+}
+
+Write-Verbose $selection
+
+$session =
+    aws sts assume-role-with-saml `
+        --role-arn $selection.Role `
+        --principal-arn $selection.Ping `
+        --saml-assertion $samlResponse `
+        --duration-seconds ($durationMinutes * 60) |
+        ConvertFrom-Json
+
+if ($LASTEXITCODE) {
+    throw "The command 'aws sts assume-role-with-saml' failed (exit code = $LASTEXITCODE)."
+}
+
+aws configure --profile $profile set aws_access_key_id     $session.Credentials.AccessKeyId
+aws configure --profile $profile set aws_secret_access_key $session.Credentials.SecretAccessKey
+aws configure --profile $profile set aws_session_token     $session.Credentials.SessionToken
+
+if ($region) {
+    aws configure --profile $profile set region $region
+}
