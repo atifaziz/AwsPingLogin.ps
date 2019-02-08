@@ -22,12 +22,20 @@
 
 [CmdletBinding()]
 param(
-    [parameter(Mandatory=$true)][Uri]$SsoUrl,
-    [parameter(Mandatory=$true)][string]$Account,
-    [parameter(Mandatory=$true)][string]$Role,
-    [parameter(Mandatory=$true)][string]$Profile,
+    [parameter(Position=0, Mandatory=$true)]
+    [Uri]$SsoUrl,
+    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [string]$Account,
+    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [string]$Role,
+    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [string]$Profile,
+    [parameter(ParameterSetName="Profile")]
     [int]$DurationMinutes = 15,
-    [string]$Region)
+    [parameter(ParameterSetName="Profile")]
+    [string]$Region,
+    [parameter(ParameterSetName="Roles")]
+    [switch]$ShowRoles)
 
 $ErrorActionPreference = 'Stop'
 
@@ -45,36 +53,45 @@ $samlResponse = (Invoke-RestMethod -Method Post -Uri $ssoUrl -UseDefaultCredenti
     % {
         $cn = $_ -split ',', 2
         New-Object psobject -Property @{
-            Role    = $cn[0]
-            Ping    = $cn[1]
+            Arn     = $cn[0]
             Account = ($cn[0] -split ':')[4]
+            Name    = ($cn[0] -split '/', 2)[1]
+            Ping    = $cn[1]
         }
     }
 
-$selection = $roles | ? { $_.Account -eq $account -and ($_.Role -split '/', 2)[1] -eq $role }
+if ($PSCmdlet.ParameterSetName -eq 'Roles') {
 
-if (!$selection) {
-    throw "You are not authorized to access AWS!"
-}
+    $roles | select Arn, Account, Name
 
-Write-Verbose $selection
+} else {
 
-$session =
-    aws sts assume-role-with-saml `
-        --role-arn $selection.Role `
-        --principal-arn $selection.Ping `
-        --saml-assertion $samlResponse `
-        --duration-seconds ($durationMinutes * 60) |
-        ConvertFrom-Json
+    $selection = $roles | ? { $_.Account -eq $account -and $_.Name -eq $role }
 
-if ($LASTEXITCODE) {
-    throw "The command 'aws sts assume-role-with-saml' failed (exit code = $LASTEXITCODE)."
-}
+    if (!$selection) {
+        throw "You are not authorized to access AWS!"
+    }
 
-aws configure --profile $profile set aws_access_key_id     $session.Credentials.AccessKeyId
-aws configure --profile $profile set aws_secret_access_key $session.Credentials.SecretAccessKey
-aws configure --profile $profile set aws_session_token     $session.Credentials.SessionToken
+    Write-Verbose $selection
 
-if ($region) {
-    aws configure --profile $profile set region $region
+    $session =
+        aws sts assume-role-with-saml `
+            --role-arn $selection.Arn `
+            --principal-arn $selection.Ping `
+            --saml-assertion $samlResponse `
+            --duration-seconds ($durationMinutes * 60) |
+            ConvertFrom-Json
+
+    if ($LASTEXITCODE) {
+        throw "The command 'aws sts assume-role-with-saml' failed (exit code = $LASTEXITCODE)."
+    }
+
+    aws configure --profile $profile set aws_access_key_id     $session.Credentials.AccessKeyId
+    aws configure --profile $profile set aws_secret_access_key $session.Credentials.SecretAccessKey
+    aws configure --profile $profile set aws_session_token     $session.Credentials.SessionToken
+
+    if ($region) {
+        aws configure --profile $profile set region $region
+    }
+
 }
