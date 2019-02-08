@@ -86,12 +86,23 @@ if ($PSCmdlet.ParameterSetName -eq 'Roles') {
         throw "The command 'aws sts assume-role-with-saml' failed (exit code = $LASTEXITCODE)."
     }
 
-    aws configure --profile $profile set aws_access_key_id     $session.Credentials.AccessKeyId
-    aws configure --profile $profile set aws_secret_access_key $session.Credentials.SecretAccessKey
-    aws configure --profile $profile set aws_session_token     $session.Credentials.SessionToken
+    function Aws-SetConfig {
+        param([string]$profile, [string]$name, [string]$value)
+
+        Write-Verbose "Running: aws configure --profile $profile set $name ..."
+        aws configure --profile $profile set $name $value
+        if ($LASTEXITCODE) {
+            throw "Failed to configure AWS profile `"$profile`" for `"$name`" (exit code = $LASTEXITCODE)."
+        }
+
+    }
+
+    Aws-SetConfig $profile aws_access_key_id     $session.Credentials.AccessKeyId
+    Aws-SetConfig $profile aws_secret_access_key $session.Credentials.SecretAccessKey
+    Aws-SetConfig $profile aws_session_token     $session.Credentials.SessionToken
 
     if ($region) {
-        aws configure --profile $profile set region $region
+        Aws-SetConfig $profile region $region
     }
 
 }
