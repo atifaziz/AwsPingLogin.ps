@@ -28,7 +28,7 @@ param(
     [string]$Account,
     [parameter(ParameterSetName="Profile", Mandatory=$true)]
     [string]$Role,
-    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [parameter(ParameterSetName="Profile")]
     [string]$Profile,
     [parameter(ParameterSetName="Profile")]
     [int]$DurationMinutes = 15,
@@ -108,20 +108,21 @@ else
         $env:AWS_SECRET_ACCESS_KEY  = $credentials.SecretAccessKey
         $env:AWS_SESSION_TOKEN      = $credentials.SessionToken
         $env:AWS_PROFILE            = $profile
+        if ($region) {
+            $env:AWS_DEFAULT_REGION = $region
+        }
         $env:AWS_X_TOKEN_EXPIRATION = $credentials.Expiration
         $env:AWS_X_ACCOUNT          = $account
         $env:AWS_X_ROLE             = $role
     }
 
-    Aws-SetConfig $profile aws_access_key_id     $credentials.AccessKeyId
-    Aws-SetConfig $profile aws_secret_access_key $credentials.SecretAccessKey
-    Aws-SetConfig $profile aws_session_token     $credentials.SessionToken
-
-    if ($region)
+    if ($profile)
     {
-        Aws-SetConfig $profile region $region
-        if (!$noEnvironment) {
-            $env:AWS_DEFAULT_REGION = $region
+        Aws-SetConfig $profile aws_access_key_id     $credentials.AccessKeyId
+        Aws-SetConfig $profile aws_secret_access_key $credentials.SecretAccessKey
+        Aws-SetConfig $profile aws_session_token     $credentials.SessionToken
+        if ($region) {
+            Aws-SetConfig $profile region $region
         }
     }
 }
