@@ -104,13 +104,21 @@ else
 
     if (!$noEnvironment)
     {
-        $env:AWS_ACCESS_KEY_ID      = $credentials.AccessKeyId
-        $env:AWS_SECRET_ACCESS_KEY  = $credentials.SecretAccessKey
-        $env:AWS_SESSION_TOKEN      = $credentials.SessionToken
-        $env:AWS_PROFILE            = $profile
+        if ($profile)
+        {
+            $env:AWS_PROFILE = $profile
+        }
+        else
+        {
+            $env:AWS_ACCESS_KEY_ID      = $credentials.AccessKeyId
+            $env:AWS_SECRET_ACCESS_KEY  = $credentials.SecretAccessKey
+            $env:AWS_SESSION_TOKEN      = $credentials.SessionToken
+        }
+
         if ($region) {
             $env:AWS_DEFAULT_REGION = $region
         }
+
         $env:AWS_X_TOKEN_EXPIRATION = $credentials.Expiration
         $env:AWS_X_ACCOUNT          = $account
         $env:AWS_X_ROLE             = $role
@@ -121,6 +129,7 @@ else
         Aws-SetConfig $profile aws_access_key_id     $credentials.AccessKeyId
         Aws-SetConfig $profile aws_secret_access_key $credentials.SecretAccessKey
         Aws-SetConfig $profile aws_session_token     $credentials.SessionToken
+
         if ($region) {
             Aws-SetConfig $profile region $region
         }
