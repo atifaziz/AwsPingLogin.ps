@@ -24,22 +24,31 @@
 param(
     [parameter(Position=0, Mandatory=$true)]
     [Uri]$SsoUrl,
-    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [parameter(ParameterSetName="Login", Mandatory=$true)]
     [string]$Account,
-    [parameter(ParameterSetName="Profile", Mandatory=$true)]
+    [parameter(ParameterSetName="Login", Mandatory=$true)]
     [string]$Role,
-    [parameter(ParameterSetName="Profile")]
+    [parameter(ParameterSetName="Login")]
     [string]$Profile,
-    [parameter(ParameterSetName="Profile")]
+    [parameter(ParameterSetName="Login")]
     [int]$DurationMinutes = 15,
-    [parameter(ParameterSetName="Profile")]
+    [parameter(ParameterSetName="Login")]
     [string]$Region,
-    [parameter(ParameterSetName="Profile")]
+    [parameter(ParameterSetName="Login")]
     [switch]$NoEnvironment = $false,
+    [parameter(ParameterSetName="Login")]
+    [switch]$NoLoginGlobal = $false,
     [parameter(ParameterSetName="Roles")]
     [switch]$ShowRoles)
 
 $ErrorActionPreference = 'Stop'
+
+if ($PSCmdlet.ParameterSetName -eq 'Login' -and !$noLoginGlobal)
+{
+    $scriptPath = $MyInvocation.MyCommand.Definition
+    $scriptParams = $MyInvocation.BoundParameters
+    $global:AwsPingLogin = { & $scriptPath @$scriptParams }.GetNewClosure()
+}
 
 if (!(Get-Command aws -ErrorAction SilentlyContinue)) {
     Write-Error "The AWS CLI does not appear to be installed or in the system path."
