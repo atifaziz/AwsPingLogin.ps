@@ -62,12 +62,12 @@ $samlResponse = (Invoke-RestMethod -Method Post -Uri $ssoUrl -UseDefaultCredenti
         }
     }
 
-if ($PSCmdlet.ParameterSetName -eq 'Roles') {
-
+if ($PSCmdlet.ParameterSetName -eq 'Roles')
+{
     $roles | select Arn, Account, Name
-
-} else {
-
+}
+else
+{
     $selection = $roles | ? { $_.Account -eq $account -and $_.Name -eq $role }
 
     if (!$selection) {
@@ -88,7 +88,8 @@ if ($PSCmdlet.ParameterSetName -eq 'Roles') {
         throw "The command 'aws sts assume-role-with-saml' failed (exit code = $LASTEXITCODE)."
     }
 
-    function Aws-SetConfig {
+    function Aws-SetConfig
+    {
         param([string]$profile, [string]$name, [string]$value)
 
         Write-Verbose "Running: aws configure --profile $profile set $name ..."
@@ -101,7 +102,8 @@ if ($PSCmdlet.ParameterSetName -eq 'Roles') {
 
     $credentials = $session.Credentials
 
-    if (!$noEnvironment) {
+    if (!$noEnvironment)
+    {
         $env:AWS_ACCESS_KEY_ID      = $credentials.AccessKeyId
         $env:AWS_SECRET_ACCESS_KEY  = $credentials.SecretAccessKey
         $env:AWS_SESSION_TOKEN      = $credentials.SessionToken
@@ -115,7 +117,8 @@ if ($PSCmdlet.ParameterSetName -eq 'Roles') {
     Aws-SetConfig $profile aws_secret_access_key $credentials.SecretAccessKey
     Aws-SetConfig $profile aws_session_token     $credentials.SessionToken
 
-    if ($region) {
+    if ($region)
+    {
         Aws-SetConfig $profile region $region
         if (!$noEnvironment) {
             $env:AWS_DEFAULT_REGION = $region
